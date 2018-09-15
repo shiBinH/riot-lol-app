@@ -1,2 +1,2 @@
 # PURPOSE
-repository for developing with Riot Games' API
+An app that strives to help players improve in Riot Games' online moba League of Legends
