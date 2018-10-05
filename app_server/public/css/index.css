@@ -1,0 +1,21 @@
+/*  Classes for developing  */
+/****************************/
+
+.green {
+  border: 1px solid green;
+}
+
+.red {
+  border: 1px solid red;
+}
+
+.yellow {
+  border: 1px solid blue;
+}
+
+
+/*  Classes */
+/************/
+.body {
+  min-height: 300px;
+}

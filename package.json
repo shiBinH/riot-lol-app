@@ -1,0 +1,28 @@
+{
+  "name": "riot-lol-app",
+  "version": "1.0.0",
+  "description": "An app that strives to help players improve in Riot Games' online moba League of Legends",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shiBinH/riot-lol-app.git"
+  },
+  "keywords": [
+    "league",
+    "improvement",
+    "strategy",
+    "advice"
+  ],
+  "author": "shibinh",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/shiBinH/riot-lol-app/issues"
+  },
+  "homepage": "https://github.com/shiBinH/riot-lol-app#readme",
+  "dependencies": {
+    "express": "^4.16.3"
+  }
+}
