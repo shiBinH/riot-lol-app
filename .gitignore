@@ -71,3 +71,7 @@ typings/
 
 # Serverless directories
 .serverless
+
+# files/directories from applicaiton
+awsnodesample
+credentials
