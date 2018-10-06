@@ -72,6 +72,7 @@ typings/
 # Serverless directories
 .serverless
 
-# files/directories from applicaiton
+# files/directories from application
 awsnodesample
 credentials
+.pem
