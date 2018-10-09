@@ -75,4 +75,7 @@ typings/
 # files/directories from application
 awsnodesample
 credentials
-.pem
+certificate.pem
+key.pem
+testing
+notes
