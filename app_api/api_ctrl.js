@@ -5,6 +5,11 @@ const request = require('request');
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3({apiVersion: '2006-03-01'});
 
+
+/**
+ * Need to generalize function
+ * 
+ * */
 const post_data_by_date_handler = (req, res, next) => {
   
   AWS.config.update({
@@ -103,13 +108,23 @@ const get_data_by_date_handler = (req, res, next) => {
 
 const get_minimaps_by_date_handler = (req, res, next) => {
   
+  function createKey(date, gameId, min, sec, format) {
+    //  need to validate input
+    return  date + '_' +
+            'game-' + gameId + '_' +
+            'minimap_' +
+            min + 'm' + sec + 's' +
+            '.' + format;
+    //  Wed_Oct_11_2018_game-1_minimap_5m41s.png
+  }
+  
   AWS.config.update({region: 'REGION', endpoint: undefined})
   const params = {
     Bucket: 'wheres-the-jungler-minimaps',
-    Key: req.params.key
+    Key: createKey(req.params.date, req.params.gameId, req.query.min, req.query.sec, req.query.format)
   }
-  //  Wed_Oct_11_2018_game-1_minimap_5-41.png
-  //  /wheres-the-jungler/date/{date}/game/{gameId}/minimaps?timestamp=5:41
+  
+  //  /wheres-the-jungler/date/{date}/game/{gameId}/minimaps?min=5&sec=41&type=png
   s3.getObject(
     params,
     (err, data) => {
@@ -127,26 +142,14 @@ const get_minimaps_by_date_handler = (req, res, next) => {
 }
 
 const get_scoreboards_by_date_handler = (req, res, next) => {
-  AWS.config.update({region: 'REGION', endpoint: undefined})
-  const params = {
-    Bucket: 'wheres-the-jungler-scoreboards',
-    Key: req.params.key
-  }
-  //  Wed_Oct_11_2018_game-1_scoreboard_5-41.png
-  s3.getObject(
-    params,
-    (err, data) => {
-      if (err) {
-        console.log("Error", err);
-        res.end();
-      } else {
-        
-        console.log('Successfully got scoreboard');
-        res.set('Content-Type', 'image/png')
-        res.send(data.Body);
-      }
-    }
-  )
+  /**
+   * 
+   * Based on get minimaps
+   * 
+   * 
+   *
+   **/
+
 }
 
 
@@ -180,14 +183,10 @@ router
   //  get handlers
   .get('/test', test_handler)
   .get('/data/date/:date', get_data_by_date_handler)
-  //  .get('/images/date/:date/game/:gameId/minimaps', get_minimaps_by_date_handler)
-  .get('/images/minimaps/:key', get_minimaps_by_date_handler)
-  .get('/images/scoreboards/:key', get_scoreboards_by_date_handler)
+  .get('/images/date/:date/game/:gameId/minimaps', get_minimaps_by_date_handler)
+  .get('/images/date/:date/game/:gameId/scoreboards', get_scoreboards_by_date_handler)
   //  post handlers
-  .post(
-    '/data/add/date/:date',
-    post_data_by_date_handler
-  )
+  .post('/data/add/date/:date', post_data_by_date_handler)
   .post(
     '/images/add/date/:date', 
     (req, res, next) => {
@@ -206,9 +205,8 @@ router
   images:
     /Wheres-the-Jungler/icons/{champion info}
   
-    /Wheres-the-Jungler/images/date/{date}/game/{game id}/minimaps?timestamp=5:41
-    /Wheres-the-Jungler/images/date/{date}/game/{game id}/scoreboards?timestamp=5:41
-    
+    /Wheres-the-Jungler/images/date/{date}/game/{gameId}/minimaps?min=5&sec=41&format=png
+    /Wheres-the-Jungler/images/date/{date}/game/{gameId}/scoreboards?min=5&sec=41&format=png    
   
   */
 
