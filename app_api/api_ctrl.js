@@ -8,12 +8,49 @@ const AWS = require('aws-sdk');
 const s3 = new AWS.S3({apiVersion: '2006-03-01'});
 
 
-//  AWS_ACCESS_KEY_ID= AWS_SECRET_ACCESS_KEY TEST=true nodemon app.js
+//  AWS_ACCESS_KEY_ID= AWS_SECRET_ACCESS_KEY= TEST=true nodemon app.js
 
 const post_game_by_date_handler = (req, res, next) => {
   /**
    * Endpoint:
-   *  /wheres-the-jungler/data/date/{date}/games
+   *    /wheres-the-jungler/data/games
+   * 
+   * Preconditions:
+   *    1.  Content-Type header must be set to multipart/form
+   *    2.  Data is attached to 'data' property of body as a JSON string
+   *    3.  Data must follow the format:
+              {
+                date: <String>
+                metaData: {
+                  patch: <Float>,
+                  league: {
+                    min: <String>
+                    max: <String>
+                  },
+                  champions: {
+                    blue: [<String>],
+                    red: [<String>]
+                  }
+                },
+                timeSlices: [
+                  {
+                    timeStamp: {
+                      "min": <Integer>
+                      "sec": <Float>,
+                    },
+                    champions: [
+                      name: <String>,
+                      team: <String>,
+                      position: {
+                        x: <Float>,
+                        y: <Float>
+                      }
+                    ]
+                  }
+                ]
+              }
+   * Postconditions:
+   *    Saves the data and associated images
    * 
    * */
   
@@ -24,53 +61,55 @@ const post_game_by_date_handler = (req, res, next) => {
 
   const docClient = new AWS.DynamoDB.DocumentClient();
   const tableName = 'Wheres-the-Jungler';
+  const bodyData = JSON.parse(req.body.data)
   
-  let date = (new Date()).toDateString().replace(/ /g, '_');
-  const new_item = {
+  const query = {
     TableName: tableName,
-    Item: {
-      date: date,
-      gameId: 1,
-      metaData: {
-        league: {
-          min: 'p1',
-          max: 'd4'
-        },
-        patch: 8.22
-      },
-      timeSlices: [
-        {
-          timeStamp: {
-            min: 5,
-            sec: 41
-          },
-          champions: {
-            "Kha'Zix": {
-              id: 12,
-              location: {
-                x: 123,
-                y: 456
-              }
-            }
-          }  
-        }
-      ]
+    Key: {
+      'date': req.params.date, //  (new Date()).toDateString()
     },
-    ReturnValues: 'ALL_OLD'
+    ExpressionAttributeNames: {
+      '#d': 'date'
+    },
+    ExpressionAttributeValues: {
+      ':targetYear': 'Oct 17 2018'
+    },
+    FilterExpression: '#d = :targetYear'
   }
   
-  docClient.put(
-    new_item,
-    (err, data) => {
+  docClient.scan(
+    query,
+    (err, gameData) => {
       if (err) {
-        console.error('Unable to add item. Error:', JSON.stringify(err, null, 4));
+        console.error('Unable to get item. Error:', JSON.stringify(err, null, 4));
       } else {
-        console.log('Successfully added item:', JSON.stringify(data, null, 4))
+        let new_item = {
+          TableName: tableName,
+          Item: {
+            //  need to be more robust
+            gameId: gameData.Count + 1
+          },
+          ReturnValues: 'ALL_OLD'
+        }
+        
+        //  needs a better way to extract data
+        Object.assign(new_item.Item, bodyData)
+        
+        docClient.put(
+          new_item,
+          (err, oldData) => {
+            if (err) {
+              console.error('Unable to add item. Error:', JSON.stringify(err, null, 4));
+            } else {
+              console.log('Successfully added item:', JSON.stringify(oldData, null, 4))
+            }
+            res.end();
+          }
+        )
       }
     }
   )
   
-  res.end();
 }
 
 const get_data_by_date_handler = (req, res, next) => {
@@ -268,7 +307,6 @@ const test_handler = (req, res, next) => {
     */
     
     //  for testing image uploading and multer middle ware
-    console.log(req.files['2'])
     /*
     AWS.config.update({region: 'REGION'});
     const params = {
@@ -289,7 +327,8 @@ const test_handler = (req, res, next) => {
     )
     
     */
-    res.end();
+
+    res.end()
   }
   
   else 
@@ -310,7 +349,7 @@ router
   .get('/images/date/:date/games/:gameId/minimaps', get_minimaps_by_date_handler)
   .get('/images/date/:date/games/:gameId/scoreboards', get_scoreboards_by_date_handler)
   //  post handlers
-  .post('/data/date/:date/games', post_game_by_date_handler)
+  .post('/data/games', upload.fields([{name: '1'}, {name: '2'}]), post_game_by_date_handler)
   
   /*
   
