@@ -6,17 +6,14 @@ const upload = multer();
 const request = require('request');
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3({apiVersion: '2006-03-01'});
-const fs = require('fs');
 
 
 //  AWS_ACCESS_KEY_ID= AWS_SECRET_ACCESS_KEY TEST=true nodemon app.js
 
-const post_data_by_date_handler = (req, res, next) => {
+const post_game_by_date_handler = (req, res, next) => {
   /**
-   * endpoint:
-   *  /wheres-the-jungler/data/add/date/{date}
-   * 
-   * 
+   * Endpoint:
+   *  /wheres-the-jungler/data/date/{date}/games
    * 
    * */
   
@@ -26,36 +23,36 @@ const post_data_by_date_handler = (req, res, next) => {
   })
 
   const docClient = new AWS.DynamoDB.DocumentClient();
+  const tableName = 'Wheres-the-Jungler';
   
-  let date = (new Date()).toDateString();
+  let date = (new Date()).toDateString().replace(/ /g, '_');
   const new_item = {
-    TableName: 'Wheres-the-Jungler',
+    TableName: tableName,
     Item: {
       date: date,
-      gameId: 3,
-      meta_data: {
+      gameId: 1,
+      metaData: {
         league: {
           min: 'p1',
           max: 'd4'
         },
         patch: 8.22
       },
-      time_slices: [
+      timeSlices: [
         {
-          time_stamp: {
+          timeStamp: {
             min: 5,
             sec: 41
           },
-          champions: [
-            {
-              name: 'Kha\'Zix',
+          champions: {
+            "Kha'Zix": {
               id: 12,
               location: {
                 x: 123,
                 y: 456
               }
-            }  
-          ]
+            }
+          }  
         }
       ]
     },
@@ -80,8 +77,10 @@ const get_data_by_date_handler = (req, res, next) => {
   /**
    * 
    * Endpoint:
-   *  wheres-the-jungler/data/date
-   *  
+   *    wheres-the-jungler/data/date/:date
+   * 
+   * Returns an object with property 'items' containing
+   * an array of data for the queried date
    * 
    */
   
@@ -89,48 +88,59 @@ const get_data_by_date_handler = (req, res, next) => {
     region: 'us-east-2',
     endpoint: 'https://dynamodb.us-east-2.amazonaws.com'
   })
-
+  
   const docClient = new AWS.DynamoDB.DocumentClient();
+  const tableName = 'Wheres-the-Jungler';
 
   const query = {
-    TableName: 'Wheres-the-Jungler',
+    TableName: tableName,
     Key: {
       'date': req.params.date, //  (new Date()).toDateString()
-      'gameId': 1
-    }
+    },
+    ExpressionAttributeNames: {
+      '#d': 'date'
+    },
+    ExpressionAttributeValues: {
+      ':targetYear': req.params.date
+    },
+    FilterExpression: '#d = :targetYear'
   }
   
-  docClient.get(
+  docClient.scan(
     query,
     (err, data) => {
       if (err) {
         console.error('Unable to get item. Error:', JSON.stringify(err, null, 4));
       } else {
         console.log('Successfully got item:', JSON.stringify(data, null, 4));
-        res.json(data);
+        let returnData = {
+          items: data.Items
+        }
+        res.json(returnData);
       }
     }
   )
 }
 
 const get_minimaps_by_date_handler = (req, res, next) => {
-  function createKey(date, gameId, min, sec, format) {
-    //  need to validate input
-    return  date + '_' +
-            'game-' + gameId + '_' +
-            'minimap_' +
-            min + 'm' + sec + 's' +
-            '.' + format;
-    //  Wed_Oct_11_2018_game-1_minimap_5m41s.png
-  }
+  /**
+   * 
+   * Endpoint:
+   *  wheres-the-jungler/images/date/{date}/games/{gameId}/minimaps?min={int}&sec={int}&format=png
+   * 
+   * Returns an PNG image pertaining to the supplied parameters
+   * 
+   * */
   
   AWS.config.update({region: 'REGION', endpoint: undefined});
+  
+  const BucketName = 'wheres-the-jungler-minimaps';
+  
   const params = {
-    Bucket: 'wheres-the-jungler-minimaps',
+    Bucket: BucketName,
     Key: createKey(req.params.date, req.params.gameId, req.query.min, req.query.sec, req.query.format)
   }
   
-  //  /wheres-the-jungler/images/date/{date}/game/{gameId}/minimaps?min=5&sec=41&format=png
   s3.getObject(
     params,
     (err, data) => {
@@ -145,6 +155,20 @@ const get_minimaps_by_date_handler = (req, res, next) => {
       }
     }
   )
+  
+  
+  /*  HELPER FUNCTIONS  */
+  /**********************/
+  
+  function createKey(date, gameId, min, sec, format) {
+    //  need to validate input
+    return  date + '_' +
+            'game-' + gameId + '_' +
+            'minimap_' +
+            min + 'm' + sec + 's' +
+            '.' + format;
+    //  Wed_Oct_11_2018_game-1_minimap_5m41s.png
+  }
 }
 
 const get_scoreboards_by_date_handler = (req, res, next) => {
@@ -244,7 +268,7 @@ const test_handler = (req, res, next) => {
     */
     
     //  for testing image uploading and multer middle ware
-    console.log(req.files[1])
+    console.log(req.files['2'])
     /*
     AWS.config.update({region: 'REGION'});
     const params = {
@@ -279,23 +303,14 @@ router
   .use(bodyParser.json())
   //  test handlers
   .get('/test', test_handler)
-  .post('/test', upload.array('first'), test_handler)
+  .post('/test', upload.fields([{name: '1'}, {name: '2'}]), test_handler)
   //  get handlers
   .get('/data/dates', get_dates_handler)
   .get('/data/date/:date', get_data_by_date_handler)
   .get('/images/date/:date/games/:gameId/minimaps', get_minimaps_by_date_handler)
   .get('/images/date/:date/games/:gameId/scoreboards', get_scoreboards_by_date_handler)
   //  post handlers
-  .post('/data/add/date/:date', post_data_by_date_handler)
-  .post(
-    '/images/add/date/:date', 
-    (req, res, next) => {
-      console.log('POST handler of', req.originalUrl);
-      console.log('BODY:', req.body);
-      res.json(req.body);
-    }
-  )
-    
+  .post('/data/date/:date/games', post_game_by_date_handler)
   
   /*
   
