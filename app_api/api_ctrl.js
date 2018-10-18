@@ -52,6 +52,10 @@ const post_game_by_date_handler = (req, res, next) => {
    * Postconditions:
    *    Saves the data and associated images
    * 
+   * TODO
+   *    1.  Validate POST data
+   *    2.  Validate uploaded images
+   * 
    * */
   
   AWS.config.update({
@@ -61,18 +65,19 @@ const post_game_by_date_handler = (req, res, next) => {
 
   const docClient = new AWS.DynamoDB.DocumentClient();
   const tableName = 'Wheres-the-Jungler';
-  const bodyData = JSON.parse(req.body.data)
+  const bodyData = JSON.parse(req.body.data);
   
+  //  Query dates to compute a unique game id
   const query = {
     TableName: tableName,
     Key: {
-      'date': req.params.date, //  (new Date()).toDateString()
+      'date': bodyData.date, 
     },
     ExpressionAttributeNames: {
       '#d': 'date'
     },
     ExpressionAttributeValues: {
-      ':targetYear': 'Oct 17 2018'
+      ':targetYear': bodyData.date
     },
     FilterExpression: '#d = :targetYear'
   }
@@ -83,11 +88,21 @@ const post_game_by_date_handler = (req, res, next) => {
       if (err) {
         console.error('Unable to get item. Error:', JSON.stringify(err, null, 4));
       } else {
+        
+        let nextGameId = 1 + (function get_highest_current_game_id(items)  {
+          
+          let highest_current_game_id = 0;
+          for (let i in gameData.Items) {
+            highest_current_game_id = Math.max(highest_current_game_id, gameData.Items[i].gameId)
+          }
+          return highest_current_game_id;
+          
+        })(gameData.Items);
+        
         let new_item = {
           TableName: tableName,
           Item: {
-            //  need to be more robust
-            gameId: gameData.Count + 1
+            gameId: nextGameId
           },
           ReturnValues: 'ALL_OLD'
         }
@@ -95,17 +110,68 @@ const post_game_by_date_handler = (req, res, next) => {
         //  needs a better way to extract data
         Object.assign(new_item.Item, bodyData)
         
+        let posted_data = false;
+        let posted_images = false;
+        
+        //  POST data to DynamoDB
+        AWS.config.update({
+          region: 'us-east-2',
+          endpoint: 'https://dynamodb.us-east-2.amazonaws.com'
+        })
         docClient.put(
           new_item,
           (err, oldData) => {
             if (err) {
               console.error('Unable to add item. Error:', JSON.stringify(err, null, 4));
             } else {
-              console.log('Successfully added item:', JSON.stringify(oldData, null, 4))
+              console.log('\n', 'Successfully added item:', oldData)
             }
-            res.end();
+            posted_data = true;
+            if (posted_data && posted_images)
+              res.end();
           }
         )
+        
+        //  POST each file to S3 storage
+        const files = req.files;
+        files.forEach((file, index) => {
+          //  Need to validate timestamp
+          AWS.config.update({region: "REGION", endpoint: undefined})
+          const timestamp = file.fieldname;
+          const date = bodyData.date
+          const gameId = nextGameId
+          const minimapName = (function createMinimapName(timestamp, date, gameId) {
+            let name = 
+              date +
+              " game-" + gameId +
+              " minimap" +
+              " " + timestamp +
+              ".png";
+            return name;
+          })(timestamp, date, gameId)
+          
+          const params = {
+            Bucket: 'wheres-the-jungler-minimaps',
+            Key: minimapName,
+            Body: file.buffer
+          }
+          
+          s3.upload(
+            params,
+            (err, data) => {
+              if (err)
+                console.error("Error:", err)
+              else {
+                console.log('\n', 'Success', data)
+              }
+              posted_images = true;
+              
+              if (posted_data && posted_images)
+                res.end();
+            }
+          )
+         
+        })
       }
     }
   )
@@ -180,6 +246,7 @@ const get_minimaps_by_date_handler = (req, res, next) => {
     Key: createKey(req.params.date, req.params.gameId, req.query.min, req.query.sec, req.query.format)
   }
   
+  
   s3.getObject(
     params,
     (err, data) => {
@@ -201,11 +268,11 @@ const get_minimaps_by_date_handler = (req, res, next) => {
   
   function createKey(date, gameId, min, sec, format) {
     //  need to validate input
-    return  date + '_' +
-            'game-' + gameId + '_' +
-            'minimap_' +
-            min + 'm' + sec + 's' +
-            '.' + format;
+    return  date +
+            ' game-' + gameId +
+            ' minimap' +
+            ' ' + min + 'm' + sec + 's' +
+            '.png'
     //  Wed_Oct_11_2018_game-1_minimap_5m41s.png
   }
 }
@@ -349,7 +416,7 @@ router
   .get('/images/date/:date/games/:gameId/minimaps', get_minimaps_by_date_handler)
   .get('/images/date/:date/games/:gameId/scoreboards', get_scoreboards_by_date_handler)
   //  post handlers
-  .post('/data/games', upload.fields([{name: '1'}, {name: '2'}]), post_game_by_date_handler)
+  .post('/data/games', upload.any(), post_game_by_date_handler)
   
   /*
   
