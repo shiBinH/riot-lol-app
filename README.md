@@ -1,2 +1,2 @@
 # PURPOSE
-An app that strives to help players improve in Riot Games' online moba League of Legends
+A REST API that returns time-slice map data of selected game instances of Riot Games' MOBA League of Legends

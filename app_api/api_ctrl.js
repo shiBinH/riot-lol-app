@@ -8,20 +8,6 @@ const AWS = require('aws-sdk');
 const s3 = new AWS.S3({apiVersion: '2006-03-01'});
 const JWT = require('jsonwebtoken');
 const PASSPORT = require('passport');
-const BearerStrategy = require('passport-http-bearer')
-PASSPORT.use(new BearerStrategy(
-    //  authorize client
-    (token, done) => {
-      
-      try {
-        done(null, JWT.verify(token, "SHI BIN HUANG"))
-      } catch(err) {
-        done(null, false)
-      }
-
-    }  
-  )
-)
 
 
 //  AWS_ACCESS_KEY_ID= AWS_SECRET_ACCESS_KEY= TEST=true nodemon app.js
@@ -530,7 +516,7 @@ const get_dates_handler = (req, res, next) => {
 const TEST_HANDLER = express.Router()
   //  generate token
   .get(
-    '/get_token', 
+    '/issue_token',
     (req, res, next) => {
       let token = JWT.sign(
       {
@@ -559,15 +545,29 @@ const TEST_HANDLER = express.Router()
       res.end();
     }
   )
+  
+  //  get token
+  .post(
+    '/get_token',
+    PASSPORT.authorize('local'),
+    (req, res, next) => {
+      res.redirect('issue_token')
+    }
+
+    
+  )
+  
 
 
 
 //  routes
 router
-  //  test routes
-  .use('/test', TEST_HANDLER)
+  
   //  entry
   .use(bodyParser.json())
+  //  test routes
+  .use('/test', multer().any(), TEST_HANDLER)
+
   //  get handlers
   .get('/data/dates', get_dates_handler)
   .get('/data/dates/:date', get_data_by_date_handler)

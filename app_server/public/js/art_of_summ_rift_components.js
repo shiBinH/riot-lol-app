@@ -16,7 +16,7 @@ $(document).ready(() => {
     render() {
       
       return(
-        <div className="container-fluid">
+        <div className="container-fluid"> 
           <Title />
           <Album 
             classes="body"
