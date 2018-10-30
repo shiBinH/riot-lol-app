@@ -6,6 +6,22 @@ const upload = multer();
 const request = require('request');
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3({apiVersion: '2006-03-01'});
+const JWT = require('jsonwebtoken');
+const PASSPORT = require('passport');
+const BearerStrategy = require('passport-http-bearer')
+PASSPORT.use(new BearerStrategy(
+    //  authorize client
+    (token, done) => {
+      
+      try {
+        done(null, JWT.verify(token, "SHI BIN HUANG"))
+      } catch(err) {
+        done(null, false)
+      }
+
+    }  
+  )
+)
 
 
 //  AWS_ACCESS_KEY_ID= AWS_SECRET_ACCESS_KEY= TEST=true nodemon app.js
@@ -394,7 +410,7 @@ const get_minimaps_by_date_handler = (req, res, next) => {
   /**
    * 
    * Endpoint:
-   *  wheres-the-jungler/images/dates/{date}/games/{gameId}/minimaps?min={int}&sec={int}&format=png
+   *  wheres-the-jungler/images/dates/{date}/games/{gameId}/minimaps?min={int}&sec={int}
    * 
    * Returns an PNG image pertaining to the supplied parameters
    * 
@@ -510,7 +526,46 @@ const get_dates_handler = (req, res, next) => {
   }
 }
 
+
+const TEST_HANDLER = express.Router()
+  //  generate token
+  .get(
+    '/get_token', 
+    (req, res, next) => {
+      let token = JWT.sign(
+      {
+        exp: (Date.now() / 1000) + 60,
+        data: {
+          user: 'SHI BIN',
+          age: 25
+        }
+      },
+      "SHI BIN HUANG"
+    )
+    
+    
+    res
+      .status(200)
+      .send(token);
+    }
+  )
+  
+  //  use token
+  .get(
+    '/use_token',
+    PASSPORT.authorize('bearer', {session: false}),
+    (req, res, next) => {
+      console.log(req.account);
+      res.end();
+    }
+  )
+
+
+
+//  routes
 router
+  //  test routes
+  .use('/test', TEST_HANDLER)
   //  entry
   .use(bodyParser.json())
   //  get handlers
