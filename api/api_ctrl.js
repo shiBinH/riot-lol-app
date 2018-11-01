@@ -7,9 +7,13 @@ const request = require('request');
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3({apiVersion: '2006-03-01'});
 const JWT = require('jsonwebtoken');
-const PASSPORT = require('passport');
+const passport = require('passport');
 
+const HOSTNAME = "riot-lol-app-xyrho.c9users.io";
 
+const AWS_REGION = 'us-east-2';
+const AWS_DYNAMODB_END_POINT = 'https://dynamodb.us-east-2.amazonaws.com';
+const AWS_DYNAMODB_TABLE_NAME = 'Wheres-the-Jungler'
 //  AWS_ACCESS_KEY_ID= AWS_SECRET_ACCESS_KEY= TEST=true nodemon app.js
 
 /**
@@ -30,26 +34,19 @@ const PASSPORT = require('passport');
  *    ex:
  *      /wheres-the-jungler/data/dates/Oct 25 2018/games
  * 
- * 
- * 
- * 
- * 
  */
 const post_games_handler = (req, res, next) => {
   
-  const AWS_REGION = 'us-east-2';
-  const AWS_END_POINT = 'https://dynamodb.us-east-2.amazonaws.com';
-  const DYNAMODB_TABLE_NAME = 'Wheres-the-Jungler';
   const BODY_DATA = JSON.parse(req.body.data);
   const REQ_DATE = req.params.date
   AWS.config.update({
     region: AWS_REGION,
-    endpoint: AWS_END_POINT
+    endpoint: AWS_DYNAMODB_END_POINT
   })
   const DOC_CLIENT = new AWS.DynamoDB.DocumentClient();
 
   const DYNAMODB_QUERY_DATES = {
-    TableName: DYNAMODB_TABLE_NAME,
+    TableName: AWS_DYNAMODB_TABLE_NAME,
     Key: {
       date: REQ_DATE
     },
@@ -80,7 +77,7 @@ const post_games_handler = (req, res, next) => {
         })(gameData.Items);
         
         const NEW_DB_ITEM = {
-          TableName: DYNAMODB_TABLE_NAME,
+          TableName: AWS_DYNAMODB_TABLE_NAME,
           Item: {
             date: REQ_DATE  //  needs validation
           },
@@ -96,7 +93,7 @@ const post_games_handler = (req, res, next) => {
         //  POST data to DynamoDB
         AWS.config.update({
           region: AWS_REGION,
-          endpoint: AWS_END_POINT
+          endpoint: AWS_DYNAMODB_END_POINT
         })
         DOC_CLIENT.put(
           NEW_DB_ITEM,
@@ -129,18 +126,17 @@ const put_games_handler = (req, res, next) => {
    * 
    * 
    * */
-  const TABLE_NAME = 'Wheres-the-Jungler';
   const BODY_DATA = JSON.parse(req.body.data);
   const REQ_DATE = req.params.date;
   const REQ_GAME_ID = parseInt(req.params.gameId);
   AWS.config.update({
-    region: 'us-east-2',
-    endpoint: 'https://dynamodb.us-east-2.amazonaws.com'
+    region: AWS_REGION,
+    endpoint: AWS_DYNAMODB_END_POINT
   })
   const docClient = new AWS.DynamoDB.DocumentClient();
   
   const query = {
-    TableName: TABLE_NAME,
+    TableName: AWS_DYNAMODB_TABLE_NAME,
     Key: {
       'date': REQ_DATE,
       'gameId': REQ_GAME_ID
@@ -157,7 +153,7 @@ const put_games_handler = (req, res, next) => {
       } else {
         
         const NEW_ITEM = {
-          TableName: TABLE_NAME,
+          TableName: AWS_DYNAMODB_TABLE_NAME,
           Item: {
             date: REQ_DATE,
             gameId: REQ_GAME_ID,
@@ -169,8 +165,8 @@ const put_games_handler = (req, res, next) => {
         Object.assign(NEW_ITEM.Item, BODY_DATA);
       
         AWS.config.update({
-          region: 'us-east-2',
-          endpoint: 'https://dynamodb.us-east-2.amazonaws.com'
+          region: AWS_REGION,
+          endpoint: AWS_DYNAMODB_TABLE_NAME
         })
         docClient.put(
           NEW_ITEM,
@@ -213,16 +209,13 @@ const put_timeslices_handlers = (req, res, next) => {
    * 3. Save map to S3
    * 
    * */
-  const AWS_REGION = 'us-east-2';
-  const AWS_END_POINT = 'https://dynamodb.us-east-2.amazonaws.com';
-  const TABLE_NAME = 'Wheres-the-Jungler';
   const REQ_DATE = req.params.date;
   const REQ_GAME_ID = parseInt(req.params.gameId);
   const TIME_SLICE = JSON.parse(req.body.data);
 
   AWS.config.update({
     region: AWS_REGION,
-    endpoint: AWS_END_POINT
+    endpoint: AWS_DYNAMODB_END_POINT
   })
 
   const DOC_CLIENT = new AWS.DynamoDB.DocumentClient();
@@ -230,7 +223,7 @@ const put_timeslices_handlers = (req, res, next) => {
   
   //  Query dates to compute a unique game id
   const REQ_DATE_QUERY = {
-    TableName: TABLE_NAME,
+    TableName: AWS_DYNAMODB_TABLE_NAME,
     Key: {
       date: REQ_DATE,
       gameId: REQ_GAME_ID
@@ -269,7 +262,10 @@ const put_timeslices_handlers = (req, res, next) => {
         })(timeSlices, TIME_SLICE);
         
         //  Save game to database
-        const PUT_GAME_REQ_URL = 'https://riot-lol-app-xyrho.c9users.io/wheres-the-jungler/data/dates/' + REQ_DATE + '/games/' + REQ_GAME_ID;
+        const PUT_GAME_REQ_URL = 
+          'https://' + HOSTNAME + req.baseUrl +
+          '/data/dates/' + REQ_DATE +
+          '/games/' + REQ_GAME_ID;
         const PUT_GAME_REQ_METHOD = 'PUT';
         const PUT_GAME_REQ_PARAMS = {
           url: PUT_GAME_REQ_URL,
@@ -355,28 +351,28 @@ const get_data_by_date_handler = (req, res, next) => {
    */
   
   AWS.config.update({
-    region: 'us-east-2',
-    endpoint: 'https://dynamodb.us-east-2.amazonaws.com'
+    region: AWS_DYNAMODB_TABLE_NAME,
+    endpoint: AWS_DYNAMODB_END_POINT
   })
   
-  const docClient = new AWS.DynamoDB.DocumentClient();
-  const tableName = 'Wheres-the-Jungler';
+  const DOC_CLIENT = new AWS.DynamoDB.DocumentClient();
+  const REQ_DATE = req.params.date;
 
   const query = {
-    TableName: tableName,
+    TableName: AWS_DYNAMODB_TABLE_NAME,
     Key: {
-      'date': req.params.date, //  (new Date()).toDateString()
+      'date': REQ_DATE, //  (new Date()).toDateString()
     },
     ExpressionAttributeNames: {
       '#d': 'date'
     },
     ExpressionAttributeValues: {
-      ':targetYear': req.params.date
+      ':targetYear': REQ_DATE
     },
     FilterExpression: '#d = :targetYear'
   }
   
-  docClient.scan(
+  DOC_CLIENT.scan(
     query,
     (err, data) => {
       if (err) {
@@ -455,11 +451,8 @@ const get_dates_handler = (req, res, next) => {
    * 
    * */
   
-  const AWS_REGION = 'us-east-2';
-  const AWS_END_POINT = 'https://dynamodb.us-east-2.amazonaws.com'
-  const DYNAMODB_TABLE_NAME = 'Wheres-the-Jungler'
   const DATES_QUERY = {
-    TableName: DYNAMODB_TABLE_NAME,
+    TableName: AWS_DYNAMODB_TABLE_NAME,
     ProjectionExpression: '#d',
     ExpressionAttributeNames: {
       '#d': 'date'
@@ -469,7 +462,7 @@ const get_dates_handler = (req, res, next) => {
   
   AWS.config.update({
     region: AWS_REGION,
-    endpoint: AWS_END_POINT
+    endpoint: AWS_DYNAMODB_END_POINT
   })
   const DOC_CLIENT = new AWS.DynamoDB.DocumentClient();
   
@@ -539,7 +532,7 @@ const TEST_HANDLER = express.Router()
   //  use token
   .get(
     '/use_token',
-    PASSPORT.authorize('bearer', {session: false}),
+    passport.authorize('bearer', {session: false}),
     (req, res, next) => {
       console.log(req.account);
       res.end();
@@ -549,13 +542,18 @@ const TEST_HANDLER = express.Router()
   //  get token
   .post(
     '/get_token',
-    PASSPORT.authorize('local'),
+    passport.authorize('local'),
     (req, res, next) => {
       res.redirect('issue_token')
     }
 
     
   )
+  
+  .get('/', (req, res, next) => {
+    console.log(req.hostname, req.baseUrl, req.originalUrl)
+    res.end();
+  })
   
 
 
